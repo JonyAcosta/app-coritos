@@ -1,76 +1,36 @@
-import React from 'react';
+import React from "react";
 
-export default function ChordLine({ line }) {
-  // Si la línea está vacía o es un separador (ej: "---")
-  if (!line.trim()) return <div style={{ height: '1.2em' }} />;
-  if (line.startsWith('---')) {
-    return <hr style={{ borderColor: '#333', margin: '15px 0' }} />;
+export default function ChordLine({ text }) {
+  // Si la línea no contiene acordes entre corchetes, se muestra como texto regular
+  if (!text.includes("[")) {
+    return <p className="leading-relaxed text-slate-200">{text}</p>;
   }
 
-  // Regex para separar los pares [Acorde]Texto
-  // Ejemplo: "[C] Dios está a[G]quí" -> captura "[C]" y " Dios está a", luego "[G]" y "quí"
-  const regex = /\[([^\]]+)\]([^\[]*)/g;
-  const blocks = [];
-  let match;
-  let lastIndex = 0;
+  // Divide la línea identificando bloques de acordes y texto
+  const parts = text.split(/(\[[^\]]*\])/g);
 
-  // Si la línea empieza con texto sin acorde previo
-  const initialText = line.match(/^([^\[]+)/);
-  if (initialText && !line.startsWith('[')) {
-    blocks.push({ chord: null, text: initialText[1] });
-    lastIndex = initialText[1].length;
-  }
+  let chordLine = "";
+  let lyricsLine = "";
 
-  while ((match = regex.exec(line)) !== null) {
-    blocks.push({
-      chord: match[1],
-      text: match[2]
-    });
-  }
-
-  // Si la línea no tenía ninguno de los patrones anteriores (texto plano sin acordes)
-  if (blocks.length === 0) {
-    return <div style={{ lineHeight: '1.8', color: '#e0e0e0' }}>{line}</div>;
-  }
+  parts.forEach((part) => {
+    if (part.startsWith("[") && part.endsWith("]")) {
+      const chord = part.slice(1, -1);
+      chordLine += chord;
+      // Agrega espacios en la letra para mantener alineación si el acorde es largo
+      lyricsLine += " ".repeat(Math.max(0, chord.length));
+    } else {
+      lyricsLine += part;
+      // Añade espacios en la línea de acordes según la longitud de la sílaba
+      chordLine += " ".repeat(part.length);
+    }
+  });
 
   return (
-    <div style={{
-      display: 'flex',
-      flexWrap: 'wrap',
-      marginBottom: '10px',
-      lineHeight: '1'
-    }}>
-      {blocks.map((block, index) => (
-        <div 
-          key={index} 
-          style={{ 
-            display: 'inline-flex', 
-            flexDirection: 'column',
-            alignItems: 'flex-start',
-            marginRight: block.text.endsWith(' ') ? '0.4em' : '0'
-          }}
-        >
-          {/* El acorde (arriba) */}
-          <span style={{
-            height: '1.4em',
-            fontWeight: 'bold',
-            color: '#ffb74d', // Color dorado/naranja para destacar el acorde
-            fontSize: '15px',
-            fontFamily: 'monospace'
-          }}>
-            {block.chord || ''}
-          </span>
-
-          {/* La letra (abajo) */}
-          <span style={{
-            fontSize: '18px',
-            color: '#ffffff',
-            whiteSpace: 'pre'
-          }}>
-            {block.text || ' '}
-          </span>
-        </div>
-      ))}
+    <div className="font-mono leading-none my-1 select-text">
+      <div className="text-amber-400 font-bold whitespace-pre text-sm tracking-wider">
+        {chordLine}
+      </div>
+      <div className="text-slate-100 whitespace-pre">{lyricsLine}</div>
     </div>
   );
 }

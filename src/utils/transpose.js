@@ -1,43 +1,76 @@
-// Escala cromática estándar
-const CHROMATIC_SCALE = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+const SCALE_SHARPS = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+const SCALE_FLATS  = ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"];
 
-// Mapeo equivalente para bemoles (Bb -> A#, Eb -> D#, etc.)
-const FLAT_TO_SHARP = {
-  'Db': 'C#', 'Eb': 'D#', 'Gb': 'F#', 'Ab': 'G#', 'Bb': 'A#'
-};
+// Regex para identificar un acorde musical válido (ej: Em, C, F#m7, Bsus4, G/B)
+const CHORD_TOKEN_REGEX = /^[A-G][b#]?(m|maj|min|dim|aug|sus[24]?|[0-9])?(\/[A-G][b#]?)?$/;
 
-/**
- * Cambia la nota base un número dado de semitonos (pasos)
- */
-function transposeNote(note, semitones) {
-  // Convertir bemoles a sostenidos para trabajar en la misma escala
-  const cleanNote = FLAT_TO_SHARP[note] || note;
-  const index = CHROMATIC_SCALE.indexOf(cleanNote);
+export function transposeChord(chord, semitones) {
+  if (!chord) return chord;
 
-  if (index === -1) return note; // Si no encuentra la nota, la devuelve igual
+  // Manejo de acordes con bajo invertido (ej: D/F#)
+  if (chord.includes("/")) {
+    const [base, bass] = chord.split("/");
+    return `${transposeChord(base, semitones)}/${transposeChord(bass, semitones)}`;
+  }
 
-  // Calcular el nuevo índice usando módulo para dar la vuelta al círculo armónico
+  const match = chord.match(/^([A-G][b#]?)(.*)/);
+  if (!match) return chord;
+
+  const root = match[1];
+  const suffix = match[2] || "";
+
+  let index = SCALE_SHARPS.indexOf(root);
+  let useFlats = false;
+
+  if (index === -1) {
+    index = SCALE_FLATS.indexOf(root);
+    useFlats = true;
+  }
+  if (index === -1) return chord;
+
   let newIndex = (index + semitones) % 12;
   if (newIndex < 0) newIndex += 12;
 
-  return CHROMATIC_SCALE[newIndex];
+  const newRoot = useFlats ? SCALE_FLATS[newIndex] : SCALE_SHARPS[newIndex];
+  return `${newRoot}${suffix}`;
 }
 
-/**
- * Transpone todos los acordes encerrados entre corchetes [Acorde] dentro del texto
- */
-export function transposeChordPro(text, semitones) {
-  if (semitones === 0) return text;
+export function isChordLine(line) {
+  const trimmed = line.trim();
+  if (!trimmed) return false;
 
-  // Regex para capturar lo que hay entre corchetes [ ... ]
-  return text.replace(/\[([A-G][b#]?[^\]]*)\]/g, (match, chord) => {
-    // Separa la nota base (ej: "C#", "F", "Bb") del resto del acorde (ej: "m7", "sus4", "add9")
-    const noteMatch = chord.match(/^([A-G][b#]?)(.*)/);
-    if (!noteMatch) return `[${chord}]`;
+  // Si tiene corchetes, contiene acordes inline
+  if (/\[[A-G][b#]?.*\]/.test(trimmed)) return true;
 
-    const [, baseNote, chordType] = noteMatch;
-    const newBaseNote = transposeNote(baseNote, semitones);
+  // Si no, separa por espacios y evalúa si todas las palabras son acordes musicales
+  const tokens = trimmed.split(/\s+/);
+  return tokens.length > 0 && tokens.every((token) => CHORD_TOKEN_REGEX.test(token));
+}
 
-    return `[${newBaseNote}${chordType}]`;
-  });
+export function transposeLine(line, semitones) {
+  if (semitones === 0) return line;
+
+  // Caso 1: Acordes inline entre corchetes tipo [Em]
+  if (/\[[A-G][b#]?.*\]/.test(line)) {
+    return line.replace(/\[([A-G][b#]?[^\]]*)\]/g, (_, chord) => {
+      return `[${transposeChord(chord, semitones)}]`;
+    });
+  }
+
+  // Caso 2: Línea compuesta exclusivamente de acordes (como tu caso actual: "Em C")
+  if (isChordLine(line)) {
+    return line.replace(/\S+/g, (chord) => {
+      return CHORD_TOKEN_REGEX.test(chord) ? transposeChord(chord, semitones) : chord;
+    });
+  }
+
+  return line;
+}
+
+export function transposeText(text, semitones) {
+  if (!text) return "";
+  return text
+    .split("\n")
+    .map((line) => transposeLine(line, semitones))
+    .join("\n");
 }

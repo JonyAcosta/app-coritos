@@ -1,170 +1,108 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { transposeChordPro } from '../utils/transpose';
-import ChordLine from './ChordLine';
+import React, { useState } from "react";
+import ChordLine from "./ChordLine";
+import { transposeText } from "../utils/transpose";
 
-export default function CoritoViewer({ titulo, letra }) {
-  const [isScrolling, setIsScrolling] = useState(false);
-  const [speed, setSpeed] = useState(3);
+export default function CoritoViewer({ coro, onBack, onOpenPresentation }) {
   const [semitones, setSemitones] = useState(0);
-  const scrollIntervalRef = useRef(null);
+  const [fontSize, setFontSize] = useState(18); // Control de tamaño de letra para atril
 
-  useEffect(() => {
-    if (isScrolling) {
-      const intervalTime = 70 / speed;
+  if (!coro) return null;
 
-      scrollIntervalRef.current = setInterval(() => {
-        window.scrollBy({
-          top: 1,
-          behavior: 'smooth'
-        });
-
-        if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight) {
-          setIsScrolling(false);
-        }
-      }, intervalTime);
-    } else {
-      clearInterval(scrollIntervalRef.current);
-    }
-
-    return () => clearInterval(scrollIntervalRef.current);
-  }, [isScrolling, speed]);
-
-  // Transponer el texto completo
-  const letraTranspuesta = transposeChordPro(letra, semitones);
-
-  // Separar el texto en líneas para renderizarlas una por una
-  const lineas = letraTranspuesta.split('\n');
+  // Separa las estrofas/secciones por doble salto de línea
+  const sections = (coro.letra || "")
+    .split(/\n\s*\n/)
+    .map((s) => s.trim())
+    .filter(Boolean);
 
   return (
-    <div style={{ maxWidth: '600px', margin: '0 auto', paddingBottom: '140px' }}>
-      <h1 style={{ marginBottom: '10px', color: '#4CAF50', textAlign: 'center' }}>{titulo}</h1>
-
-      {/* Control de Tono */}
-      <div style={{
-        display: 'flex',
-        justify: 'center',
-        alignItems: 'center',
-        gap: '12px',
-        marginBottom: '20px',
-        backgroundColor: '#1e1e1e',
-        padding: '10px',
-        borderRadius: '12px',
-        border: '1px solid #333'
-      }}>
-        <span style={{ fontSize: '14px', color: '#aaa', fontWeight: 'bold' }}>TONO:</span>
+    <div className="flex flex-col h-full max-w-4xl mx-auto p-4 md:p-6 bg-slate-900 text-slate-100 rounded-2xl shadow-xl">
+      {/* Barra superior de control */}
+      <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-800">
         <button
-          onClick={() => setSemitones(semitones - 1)}
-          style={{
-            backgroundColor: '#333',
-            color: '#fff',
-            border: 'none',
-            padding: '6px 14px',
-            borderRadius: '6px',
-            cursor: 'pointer',
-            fontSize: '16px',
-            fontWeight: 'bold'
-          }}
+          onClick={onBack}
+          className="flex items-center gap-2 text-sm text-slate-400 hover:text-white transition-colors"
         >
-          -1
+          ← Volver
         </button>
 
-        <span style={{ 
-          fontSize: '16px', 
-          fontWeight: 'bold', 
-          minWidth: '40px', 
-          textAlign: 'center',
-          color: semitones !== 0 ? '#ffb74d' : '#fff'
-        }}>
-          {semitones > 0 ? `+${semitones}` : semitones}
-        </span>
+        {/* Título y tono */}
+        <div className="text-center">
+          <h2 className="text-2xl font-bold tracking-tight text-white">{coro.titulo}</h2>
+          <span className="text-xs font-semibold px-2 py-0.5 rounded bg-indigo-950 text-indigo-300 border border-indigo-800">
+            Tono original: {coro.tono || "N/A"}
+          </span>
+        </div>
 
-        <button
-          onClick={() => setSemitones(semitones + 1)}
-          style={{
-            backgroundColor: '#333',
-            color: '#fff',
-            border: 'none',
-            padding: '6px 14px',
-            borderRadius: '6px',
-            cursor: 'pointer',
-            fontSize: '16px',
-            fontWeight: 'bold'
-          }}
-        >
-          +1
-        </button>
+        {/* Controles: Transposición, Zoom y Proyección */}
+        <div className="flex items-center gap-2">
+          {/* Transpositor de semitonos */}
+          <div className="flex items-center bg-slate-800 rounded-lg p-1 border border-slate-700">
+            <button
+              onClick={() => setSemitones((s) => s - 1)}
+              className="w-7 h-7 flex items-center justify-center text-sm font-bold text-slate-300 hover:bg-slate-700 rounded transition-colors"
+              title="Bajar 1 semitono"
+            >
+              -
+            </button>
+            <span className="px-2 text-xs font-mono font-bold text-amber-400 min-w-8 text-center">
+              {semitones > 0 ? `+${semitones}` : semitones}
+            </span>
+            <button
+              onClick={() => setSemitones((s) => s + 1)}
+              className="w-7 h-7 flex items-center justify-center text-sm font-bold text-slate-300 hover:bg-slate-700 rounded transition-colors"
+              title="Subir 1 semitono"
+            >
+              +
+            </button>
+          </div>
 
-        {semitones !== 0 && (
+          {/* Ajuste de tamaño de fuente para el atril */}
+          <div className="flex items-center bg-slate-800 rounded-lg p-1 border border-slate-700">
+            <button
+              onClick={() => setFontSize((f) => Math.max(f - 2, 14))}
+              className="w-7 h-7 flex items-center justify-center text-xs font-bold text-slate-300 hover:bg-slate-700 rounded"
+              title="Disminuir letra"
+            >
+              A-
+            </button>
+            <button
+              onClick={() => setFontSize((f) => Math.min(f + 2, 32))}
+              className="w-7 h-7 flex items-center justify-center text-xs font-bold text-slate-300 hover:bg-slate-700 rounded"
+              title="Aumentar letra"
+            >
+              A+
+            </button>
+          </div>
+
+          {/* Botón Proyectar (abre PresentationView) */}
           <button
-            onClick={() => setSemitones(0)}
-            style={{
-              backgroundColor: 'transparent',
-              color: '#888',
-              border: 'none',
-              cursor: 'pointer',
-              fontSize: '12px',
-              textDecoration: 'underline',
-              marginLeft: '8px'
-            }}
+            onClick={() => onOpenPresentation(coro)}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-semibold transition-colors shadow-md"
           >
-            Reset
+            🖥️ Proyectar
           </button>
-        )}
-      </div>
-      
-      {/* Visualizador con acordes flotantes arriba */}
-      <div style={{ 
-        backgroundColor: '#1e1e1e',
-        padding: '24px',
-        borderRadius: '16px',
-        border: '1px solid #2a2a2a'
-      }}>
-        {lineas.map((linea, index) => (
-          <ChordLine key={index} line={linea} />
-        ))}
+        </div>
       </div>
 
-      {/* Control flotante para el Autoscroll */}
-      <div style={{
-        position: 'fixed',
-        bottom: '20px',
-        left: '50%',
-        transform: 'translateX(-50%)',
-        backgroundColor: '#2a2a2a',
-        padding: '12px 24px',
-        borderRadius: '30px',
-        display: 'flex',
-        gap: '15px',
-        alignItems: 'center',
-        boxShadow: '0 8px 20px rgba(0,0,0,0.5)',
-        border: '1px solid #333'
-      }}>
-        <button 
-          onClick={() => setIsScrolling(!isScrolling)}
-          style={{
-            padding: '10px 20px',
-            backgroundColor: isScrolling ? '#e53935' : '#4CAF50',
-            color: 'white',
-            border: 'none',
-            borderRadius: '20px',
-            cursor: 'pointer',
-            fontWeight: 'bold',
-            fontSize: '14px'
-          }}
-        >
-          {isScrolling ? '⏸ Pausar' : '▶ Autoscroll'}
-        </button>
+      {/* Contenido con letra y acordes */}
+      <div className="flex-1 overflow-y-auto py-6 space-y-6">
+        {sections.map((section, idx) => {
+          // Transpone la sección completa antes de renderizar
+          const transposedSection = transposeText(section, semitones);
+          const lines = transposedSection.split("\n");
 
-        <label style={{ fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          Velocidad:
-          <input 
-            type="range" 
-            min="1" 
-            max="5" 
-            value={speed} 
-            onChange={(e) => setSpeed(Number(e.target.value))}
-          />
-        </label>
+          return (
+            <div
+              key={idx}
+              className="p-4 rounded-xl bg-slate-800/40 border border-slate-800 space-y-2"
+              style={{ fontSize: `${fontSize}px` }}
+            >
+              {lines.map((line, lineIdx) => (
+                <ChordLine key={lineIdx} text={line} />
+              ))}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
